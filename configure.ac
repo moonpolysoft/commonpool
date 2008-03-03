@@ -3,8 +3,8 @@ dnl - It should be specified as major.minor.revision [1.3.0]
 dnl - The third argument, should be replaced with the package 
 dnl - maintainers email address.
 
-AC_INIT([rubygem_common_pool], [0.0.0], [cliff@powerset.com])
-SHORT_DESCRIPTION="A short description of the package"
+AC_INIT([rubygem_common_pool], [0.0.1], [cliff@powerset.com])
+SHORT_DESCRIPTION="An object pool for ruby.  based on the apache commons object pool."
 
 dnl - The following prerequisites line can be used to specify
 dnl - the exact, or minimum, versions of packages on which this
