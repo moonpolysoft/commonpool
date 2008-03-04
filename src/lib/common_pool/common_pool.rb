@@ -59,11 +59,7 @@ module CommonPool
     attr_accessor :idle_check_interval
    
     # Assign a logger, to log pool debug/info messages, used this for debugging purpose.
-    attr_accessor :logger    
-    
-    # The data source object to be extended, code>create_object</code> method need to be 
-    # overridden
-    attr_accessor :data_source
+    attr_accessor :logger
     
     # Initilize configuration with default settings.
     def initialize
@@ -90,30 +86,33 @@ module CommonPool
     end
   end
 
+  # This is balls.  We have something that does this in ruby.  It's called a closure.
+  
   # Data source for objects to be stored in the pool.
-  class PoolDataSource
-    # Override to create an object to be stored in the pool.
-    def create_object
-      raise CommonPoolError, "Overwrite this method to create an object to be stored in the pool."
-    end
-    
-    # Override to check the validity of your idle object, called when idle object eviction stread.
-    def valid?(object)
-      true
-    end
-  end
+  # class PoolDataSource
+  #   # Override to create an object to be stored in the pool.
+  #   def create_object
+  #     raise CommonPoolError, "Overwrite this method to create an object to be stored in the pool."
+  #   end
+  #   
+  #   # Override to check the validity of your idle object, called when idle object eviction stread.
+  #   def valid?(object)
+  #     true
+  #   end
+  # end
   
   # First in, first out object pooling implementation.
   class ObjectPool
     attr_reader :active_list, :idle_list, :idle_check_thread, :idle_check_status
-    attr_accessor :config, :data_source
+    attr_accessor :config, :create_block, :validate_block, :destroy_block
     
     # Initialize pool instance with default configuration options. Override config as a parameter passed to the block.
-    def initialize(data_source = nil, &proc)
-      raise ArgumentError, "Data source is required." unless data_source      
+    def initialize(blocks={}, &proc)
       self.config = Configuration.new
-      self.data_source = data_source
-      @active_list          = {}
+      self.create_block = blocks[:create]
+      self.validate_block = blocks[:valid] || lambda { true }
+      self.destroy_block = blocks[:destroy]
+      @active_list        = {}
       @idle_list          = []
       @idle_check_status  = "Not Running"
       @mutex              = Mutex.new
@@ -176,14 +175,21 @@ module CommonPool
     def invalidate_object(object)
       @mutex.synchronize {
         logger.debug("* Invalidate #{object}") if logger
+        destroy_block.call(object)
         @active_list.delete(object.__id__)
         nil
       }
     end
     
+    def each_object
+      @idle_list.each { |ts,object| yield(object) }
+      @active_list.each { |id, (ts, object)| yield(object) }
+    end
+    
     # Clear object pool, set the idle list and used list to empty.
     def clear()
       @mutex.synchronize {
+        each_object &destroy_block
         @idle_list = []
         @active_list = {}
       }
@@ -262,7 +268,7 @@ module CommonPool
     def valid_idle_object?(object)
       begin
         timeout(self.config.validation_timeout) do 
-          self.data_source.valid?(object)
+          self.validate_block.call(object)
         end
       rescue TimeoutError => e
         logger.debug("Timeout #{@config.validation_timeout} seconds validating object: #{object}") if logger
@@ -277,7 +283,7 @@ module CommonPool
     end
     
     def create_with_timestamp
-      [Time.new, self.data_source.create_object]
+      [Time.new, self.create_block.call]
     end
     
     def add_to_idle_list(object)
@@ -300,7 +306,7 @@ module CommonPool
       objects_to_create = @config.min_idle - @idle_list.size
       logger.debug("Creating additional #{objects_to_create} object(s).") if logger
       objects_to_create.times do
-        add_to_idle_list(self.data_source.create_object)
+        add_to_idle_list(self.create_block.call)
       end
     end
     

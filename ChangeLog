@@ -1,3 +1,6 @@
+Version 0.0.2 (cliff)
+  * refactored the datasource class out.  blocks are betterer.
+
 Version 0.0.1 (cliff)
 	* First commit
 
