@@ -1,3 +1,6 @@
+Version 0.0.3 (cliff)
+  gratuitous version bump
+
 Version 0.0.2 (cliff)
   * refactored the datasource class out.  blocks are betterer.
 

@@ -17,6 +17,6 @@ require 'common_pool/common_pool'
 
 module Powerset
   class CommonPool
-    VERSION = '0.0.2'
+    VERSION = '0.0.3'
   end
 end
